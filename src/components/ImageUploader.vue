@@ -7,6 +7,7 @@
 
       <v-card-text>
         <v-file-input
+          :key="inputKey"
           v-model="selectedFile"
           label="Файл изображения (.png, .jpg, .gb7)"
           accept=".png, .jpg, .jpeg, .gb7"
@@ -14,11 +15,7 @@
           :error-messages="fileError ? ['Файл обязателен'] : []"
         />
 
-        <v-btn
-          color="primary"
-          @click="loadImage"
-          :disabled="!selectedFile"
-        >
+        <v-btn color="primary" @click="loadImage" :disabled="!selectedFile">
           Загрузить изображение
         </v-btn>
 
@@ -26,7 +23,7 @@
           Ошибка загрузки изображения. Проверьте формат файла.
         </v-alert>
 
-        <v-row v-if="imageLoaded" class="mt-6">
+        <v-row v-show="imageLoaded" class="mt-6">
           <v-col cols="12" md="9">
             <div
               style="
@@ -67,135 +64,144 @@
     </v-card>
   </v-container>
 </template>
-
 <script setup>
-import { ref, nextTick, computed } from 'vue'
+import { ref, nextTick, computed } from "vue";
 
-const selectedFile = ref(null)
-const imageLoaded = ref(false)
-const fileError = ref(false)
-const loadError = ref(false)
-const canvas = ref(null)
-const imageWidth = ref(0)
-const imageHeight = ref(0)
-const hasAlpha = ref(false)
-const isGrayBit = ref(false)
-const hasMask = ref(false)
-
+const selectedFile = ref(null);
+const inputKey = ref(0);
+const imageLoaded = ref(false);
+const fileError = ref(false);
+const loadError = ref(false);
+const canvas = ref(null);
+const imageWidth = ref(0);
+const imageHeight = ref(0);
+const hasAlpha = ref(false);
+const isGrayBit = ref(false);
+const hasMask = ref(false);
 
 const depthText = computed(() => {
-  if (!imageLoaded.value) return '—'
+  if (!imageLoaded.value) return "—";
   if (isGrayBit.value) {
-    return `7-бит серого${hasMask.value ? ' + маска' : ''}`
+    return `7-бит серого${hasMask.value ? " + маска" : ""}`;
   }
-  return hasAlpha.value ? '32-бит RGBA' : '24-бит RGB'
-})
+  return hasAlpha.value ? "32-бит RGBA" : "24-бит RGB";
+});
+
+function resetInput() {
+  selectedFile.value = null;
+  inputKey.value++;
+}
 
 function loadImage() {
-  fileError.value = false
-  loadError.value = false
+  fileError.value = false;
+  loadError.value = false;
 
   if (!selectedFile.value) {
-    fileError.value = true
-    return
+    fileError.value = true;
+    return;
   }
 
-  const file = selectedFile.value
-  const ext = file.name.split('.').pop().toLowerCase()
+  const file = selectedFile.value;
+  const ext = file.name.split(".").pop().toLowerCase();
 
-  if (ext === 'gb7') {
-    const reader = new FileReader()
+  if (ext === "gb7") {
+    const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const bytes = new Uint8Array(e.target.result)
+        const bytes = new Uint8Array(e.target.result);
+        const signature = String.fromCharCode(...bytes.slice(0, 4));
+        if (signature !== "GB7\u001D") throw new Error("Invalid signature");
 
-        const signature = String.fromCharCode(...bytes.slice(0, 4))
-        if (signature !== 'GB7\u001D') throw new Error('Invalid signature')
+        const mask = bytes[5] !== 0;
+        const width = (bytes[6] << 8) | bytes[7];
+        const height = (bytes[8] << 8) | bytes[9];
 
-        const mask = (bytes[5]) !== 0
-        const width = (bytes[6] << 8) | bytes[7]
-        const height = (bytes[8] << 8) | bytes[9]
+        const pixelData = bytes.slice(12);
+        if (pixelData.length !== width * height) throw new Error("Data length mismatch");
 
-        const pixelData = bytes.slice(12)
-        if (pixelData.length !== width * height) throw new Error('Data length mismatch')
-
-        imageWidth.value = width
-        imageHeight.value = height
-        hasMask.value = mask
-        isGrayBit.value = true
-        imageLoaded.value = true
+        imageWidth.value = width;
+        imageHeight.value = height;
+        hasMask.value = mask;
+        isGrayBit.value = true;
+        imageLoaded.value = true;
 
         nextTick(() => {
-          const ctx = canvas.value?.getContext('2d')
-          if (!ctx) throw new Error('Canvas not found')
+          const ctx = canvas.value?.getContext("2d");
+          if (!ctx) throw new Error("Canvas not found");
 
-          canvas.value.width = width
-          canvas.value.height = height
-          canvas.value.style.width = '100%'
-          canvas.value.style.height = 'auto'
+          canvas.value.width = width;
+          canvas.value.height = height;
 
-          const imgData = ctx.createImageData(width, height)
-          const data = imgData.data
+          const imgData = ctx.createImageData(width, height);
+          const data = imgData.data;
 
           for (let i = 0; i < width * height; i++) {
-            const byte = pixelData[i]
-            const gray7 = Math.floor(((byte & 0b01111111) / 127) * 255)
-            const alpha = mask ? ((byte >> 7)) * 255 : 255
+            const byte = pixelData[i];
+            const gray7 = Math.floor(((byte & 0b01111111) / 127) * 255);
+            const alpha = mask ? (byte >> 7) * 255 : 255;
 
-            const j = i * 4
-            data[j] = gray7
-            data[j + 1] = gray7
-            data[j + 2] = gray7 
-            data[j + 3] = alpha
+            const j = i * 4;
+            data[j] = gray7;
+            data[j + 1] = gray7;
+            data[j + 2] = gray7;
+            data[j + 3] = alpha;
           }
 
-          ctx.putImageData(imgData, 0, 0)
-        })
+          ctx.putImageData(imgData, 0, 0);
+        });
       } catch (err) {
-        console.error('Ошибка чтения GB7:', err)
-        loadError.value = true
+        console.error("Ошибка чтения GB7:", err);
+        loadError.value = true;
+      } finally {
+        resetInput();
       }
-    }
-    reader.readAsArrayBuffer(file)
+    };
+    reader.readAsArrayBuffer(file);
   } else {
-    const imageUrl = URL.createObjectURL(file)
-    const img = new Image()
+    const imageUrl = URL.createObjectURL(file);
+    const img = new Image();
+
     img.onload = () => {
-      const ctx = canvas.value.getContext('2d')
-      canvas.value.width = img.width
-      canvas.value.height = img.height
-      canvas.value.style.width = '100%'
-      canvas.value.style.height = 'auto'
+      const ctx = canvas.value?.getContext("2d");
+      if (!ctx) {
+        console.error("Canvas context not found");
+        return;
+      }
 
-      ctx.drawImage(img, 0, 0)
+      canvas.value.width = img.width;
+      canvas.value.height = img.height;
 
-      const imageData = ctx.getImageData(0, 0, img.width, img.height)
-      const data = imageData.data
+      ctx.drawImage(img, 0, 0);
 
-      let alphaFound = false
+      const imageData = ctx.getImageData(0, 0, img.width, img.height);
+      const data = imageData.data;
+
+      let alphaFound = false;
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 255) {
-          alphaFound = true
-          break
+          alphaFound = true;
+          break;
         }
       }
 
-      imageWidth.value = img.width
-      imageHeight.value = img.height
-      hasAlpha.value = alphaFound
-      isGrayBit.value = false
-      hasMask.value = false
-      imageLoaded.value = true
+      imageWidth.value = img.width;
+      imageHeight.value = img.height;
+      hasAlpha.value = alphaFound;
+      isGrayBit.value = false;
+      hasMask.value = false;
+      imageLoaded.value = true;
 
-      URL.revokeObjectURL(imageUrl)
-    }
+      URL.revokeObjectURL(imageUrl);
+      resetInput();
+    };
 
     img.onerror = () => {
-      loadError.value = true
-      URL.revokeObjectURL(imageUrl)
-    }
+      loadError.value = true;
+      URL.revokeObjectURL(imageUrl);
+      resetInput();
+    };
 
-    img.src = imageUrl
+    img.src = imageUrl;
   }
 }
 </script>
