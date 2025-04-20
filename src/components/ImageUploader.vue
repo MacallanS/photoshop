@@ -10,6 +10,9 @@
         <v-list-item @click="triggerUpload">
           <v-list-item-title>Загрузить изображение</v-list-item-title>
         </v-list-item>
+        <v-list-item @click="resizeDialog = true" :disabled="!imageLoaded">
+          <v-list-item-title>Изменить размер</v-list-item-title>
+        </v-list-item>
       </v-list>
     </v-navigation-drawer>
 
@@ -47,13 +50,14 @@
           :width="imageWidth"
           :height="imageHeight"
           :depth="depthText"
-          style="
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            z-index: 10;
-            max-width: 250px;
-          "
+          style="position: absolute; bottom: 20px; right: 20px; z-index: 10; max-width: 250px"
+        />
+
+        <resize-dialog
+          v-model="resizeDialog"
+          :current-width="imageWidth"
+          :current-height="imageHeight"
+          @resize="handleResize"
         />
       </v-container>
     </v-main>
@@ -65,14 +69,17 @@ import { ref } from "vue";
 import { useImageLoader } from "@/composables/useImageLoader";
 import UploadError from "./UploadError.vue";
 import ImageInfo from "./ImageInfo.vue";
+import ResizeDialog from "./ResizeDialog.vue";
 
 const drawer = ref(false);
 const selectedFile = ref(null);
 const canvas = ref(null);
 const hiddenInput = ref(null);
+const resizeDialog = ref(false);
 
 const {
   loadImage,
+  resizeImage,
   fileError,
   loadError,
   imageLoaded,
@@ -92,5 +99,9 @@ function onFileSelected(event) {
       event.target.value = null;
     });
   }
+}
+
+function handleResize({ width, height, algorithm }) {
+  resizeImage({ width, height, method: algorithm });
 }
 </script>
