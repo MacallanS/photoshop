@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from "vue";
+import { ref, computed, watch } from "vue";
 
 const props = defineProps({
   modelValue: Boolean,
@@ -64,8 +64,11 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "resize"]);
 
 const dialogVisible = ref(props.modelValue);
-watch(() => props.modelValue, (val) => dialogVisible.value = val);
-watch(dialogVisible, (val) => emit("update:modelValue", val));
+watch(
+  () => props.modelValue,
+  (v) => (dialogVisible.value = v)
+);
+watch(dialogVisible, (v) => emit("update:modelValue", v));
 
 const width = ref(100);
 const height = ref(100);
@@ -77,7 +80,6 @@ const aspectRatio = computed(() => props.currentWidth / props.currentHeight);
 
 watch([width, unit, keepRatio], ([w, u, kr]) => {
   if (!kr) return;
-
   if (u === "Проценты") {
     height.value = w;
   } else {
@@ -99,15 +101,11 @@ const resultHeight = computed(() =>
 );
 
 const resultPixels = computed(() => resultWidth.value * resultHeight.value);
-const resultMegapixels = computed(() =>
-  (resultPixels.value / 1_000_000).toFixed(2)
-);
+const resultMegapixels = computed(() => (resultPixels.value / 1_000_000).toFixed(2));
 const formattedOldPixels = computed(() =>
   (props.currentWidth * props.currentHeight).toLocaleString("ru-RU")
 );
-const formattedNewPixels = computed(() =>
-  resultPixels.value.toLocaleString("ru-RU")
-);
+const formattedNewPixels = computed(() => resultPixels.value.toLocaleString("ru-RU"));
 
 function emitResize() {
   emit("resize", {

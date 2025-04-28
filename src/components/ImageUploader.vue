@@ -17,12 +17,8 @@
     </v-navigation-drawer>
 
     <v-main style="background-color: #121212">
-      <v-container fluid class="pa-3" style="position: relative; height: 100%">
-        <v-card
-          flat
-          class="d-flex align-center justify-center"
-          style="background-color: #1e1e1e; height: 90vh; border: 2px dashed #555"
-        >
+      <v-container fluid class="pa-3" style="position: relative; height: 100%;">
+        <v-card flat class="d-flex flex-column align-center justify-start" style="background-color: #1e1e1e; height: 90vh; border: 2px dashed #555;">
           <input
             ref="hiddenInput"
             type="file"
@@ -31,33 +27,37 @@
             @change="onFileSelected"
           />
 
-          <upload-error v-if="loadError" />
+          <UploadError v-if="loadError" />
 
           <div
             v-show="imageLoaded"
+            ref="canvasContainer"
             class="d-flex justify-center align-center"
-            style="max-height: 100%; width: 100%; overflow: auto"
+            style="flex: 1; width: 100%; height: 100%; overflow: auto;"
           >
-            <canvas
-              ref="canvas"
-              style="display: block; max-width: 100%; max-height: 100%"
-            />
+            <canvas ref="canvas" />
           </div>
+
+          <ColorInfoPanel
+            v-if="activeTool === 'eyedropper' && (firstColor || secondColor)"
+            :firstColor="firstColor"
+            :secondColor="secondColor"
+            style="width: 100%; background-color: #2a2a2a;"
+          />
         </v-card>
 
-        <image-info
+        <ToolSelector v-model:activeTool="activeTool" />
+        <ResizeDialog
+          v-model="resizeDialog"
+          :current-width="imageWidth"
+          :current-height="imageHeight"
+          @resize="handleResizeResizeDialog"
+        />
+        <ImageInfo
           v-if="imageLoaded"
           :width="imageWidth"
           :height="imageHeight"
           :depth="depthText"
-          style="position: absolute; bottom: 20px; right: 20px; z-index: 10; max-width: 250px"
-        />
-
-        <resize-dialog
-          v-model="resizeDialog"
-          :current-width="imageWidth"
-          :current-height="imageHeight"
-          @resize="handleResize"
         />
       </v-container>
     </v-main>
@@ -65,28 +65,37 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
-import { useImageLoader } from "@/composables/useImageLoader";
-import UploadError from "./UploadError.vue";
-import ImageInfo from "./ImageInfo.vue";
-import ResizeDialog from "./ResizeDialog.vue";
+import { ref, watch, onMounted, onUnmounted } from "vue";
+import UploadError from "@/components/UploadError.vue";
+import ToolSelector from "@/components/ToolSelector.vue";
+import ResizeDialog from "@/components/ResizeDialog.vue";
+import ColorInfoPanel from "@/components/ColorInfoPanel.vue";
+import ImageInfo from "@/components/ImageInfo.vue";
+import { nearestNeighborResize, bilinearResize } from "@/utils/interpolation";
+import { clearAndDrawImageCentered, pickColorAtCursor } from "@/utils/canvasHelpers";
+import { parseGB7 } from "@/utils/gb7Parser";
 
 const drawer = ref(false);
-const selectedFile = ref(null);
-const canvas = ref(null);
 const hiddenInput = ref(null);
+const canvas = ref(null);
 const resizeDialog = ref(false);
 
-const {
-  loadImage,
-  resizeImage,
-  fileError,
-  loadError,
-  imageLoaded,
-  imageWidth,
-  imageHeight,
-  depthText,
-} = useImageLoader(canvas);
+const activeTool = ref("hand");
+const firstColor = ref(null);
+const secondColor = ref(null);
+
+const imageLoaded = ref(false);
+const loadError = ref(false);
+const imageWidth = ref(0);
+const imageHeight = ref(0);
+const depthText = ref("8 бит");
+
+let image = ref(null);
+let offsetX = 0;
+let offsetY = 0;
+let isDragging = false;
+let startX = 0;
+let startY = 0;
 
 function triggerUpload() {
   hiddenInput.value?.click();
@@ -94,14 +103,188 @@ function triggerUpload() {
 
 function onFileSelected(event) {
   const file = event.target.files[0];
-  if (file) {
-    loadImage(file, () => {
-      event.target.value = null;
-    });
+  if (!file) return;
+
+  if (file.name.toLowerCase().endsWith(".gb7")) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const { width, height, imgData, mask } = parseGB7(e.target.result);
+
+        imageWidth.value = width;
+        imageHeight.value = height;
+        imageLoaded.value = true;
+        loadError.value = false;
+        offsetX = 0;
+        offsetY = 0;
+
+        depthText.value = mask ? "8 бит + альфа" : "8 бит";
+
+        fitCanvasToWindow();
+
+        const ctx = canvas.value.getContext("2d");
+        ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
+        const centerX = (canvas.value.width - width) / 2;
+        const centerY = (canvas.value.height - height) / 2;
+        ctx.putImageData(imgData, centerX, centerY);
+      } catch (err) {
+        console.error("Ошибка чтения GB7:", err.message);
+        loadError.value = true;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        image.value = img;
+        imageWidth.value = img.width;
+        imageHeight.value = img.height;
+        imageLoaded.value = true;
+        loadError.value = false;
+        offsetX = 0;
+        offsetY = 0;
+        fitCanvasToWindow();
+        drawImage();
+        detectImageDepth();
+      };
+      img.onerror = () => {
+        loadError.value = true;
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 }
 
-function handleResize({ width, height, algorithm }) {
-  resizeImage({ width, height, method: algorithm });
+
+function fitCanvasToWindow() {
+  if (canvas.value) {
+    canvas.value.width = window.innerWidth;
+    canvas.value.height = window.innerHeight;
+  }
 }
+
+function drawImage() {
+  if (canvas.value && image.value) {
+    clearAndDrawImageCentered(canvas.value, image.value, offsetX, offsetY, imageWidth.value, imageHeight.value);
+  }
+}
+
+function detectImageDepth(imageData) {
+  if (!canvas.value) return;
+  const ctx = canvas.value.getContext("2d");
+
+  let imgData = imageData || ctx.getImageData(0, 0, imageWidth.value, imageHeight.value);
+  let channels = imgData.data.length / (imgData.width * imgData.height);
+
+  if (channels === 4) depthText.value = "32 бита";
+  else if (channels === 3) depthText.value = "24 бита";
+  else if (channels === 1) depthText.value = "8 бит";
+  else depthText.value = `${channels * 8} бит`;
+}
+
+function onCanvasClick(event) {
+  if (activeTool.value !== "eyedropper") return;
+  const color = pickColorAtCursor(canvas.value, event);
+  if (color) {
+    if (event.shiftKey || event.ctrlKey || event.altKey) {
+      secondColor.value = color;
+    } else {
+      firstColor.value = color;
+    }
+  }
+}
+
+function onMouseDown(event) {
+  if (activeTool.value !== "hand") return;
+  isDragging = true;
+  startX = event.clientX;
+  startY = event.clientY;
+  canvas.value.style.cursor = "grabbing";
+}
+
+function onMouseMove(event) {
+  if (!isDragging || activeTool.value !== "hand") return;
+  const dx = event.clientX - startX;
+  const dy = event.clientY - startY;
+  offsetX += dx;
+  offsetY += dy;
+  startX = event.clientX;
+  startY = event.clientY;
+  drawImage();
+}
+
+function onMouseUp() {
+  isDragging = false;
+  if (activeTool.value === "hand" && canvas.value) {
+    canvas.value.style.cursor = "grab";
+  }
+}
+
+function handleKeyDown(event) {
+  if (event.key === "h" || event.key === "H") {
+    activeTool.value = "hand";
+  } else if (event.key === "e" || event.key === "E") {
+    activeTool.value = "eyedropper";
+  }
+}
+
+function handleResizeResizeDialog({ width, height, algorithm }) {
+  if (!canvas.value) return;
+  const ctx = canvas.value.getContext("2d");
+  const srcData = ctx.getImageData(
+    (canvas.value.width - imageWidth.value) / 2 + offsetX,
+    (canvas.value.height - imageHeight.value) / 2 + offsetY,
+    imageWidth.value,
+    imageHeight.value
+  );
+
+  const resized = algorithm === "nearest"
+    ? nearestNeighborResize(srcData, width, height)
+    : bilinearResize(srcData, width, height);
+
+  imageWidth.value = width;
+  imageHeight.value = height;
+  offsetX = 0;
+  offsetY = 0;
+
+  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
+  const centerX = (canvas.value.width - width) / 2;
+  const centerY = (canvas.value.height - height) / 2;
+  ctx.putImageData(resized, centerX, centerY);
+}
+
+watch(activeTool, (tool) => {
+  if (canvas.value) {
+    canvas.value.style.cursor = tool === "hand" ? "grab" : (tool === "eyedropper" ? "crosshair" : "default");
+  }
+});
+
+onMounted(() => {
+  window.addEventListener("resize", fitCanvasToWindow);
+  window.addEventListener("keydown", handleKeyDown);
+
+  if (canvas.value) {
+    canvas.value.addEventListener("click", onCanvasClick);
+    canvas.value.addEventListener("mousedown", onMouseDown);
+    canvas.value.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }
+
+  fitCanvasToWindow();
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", fitCanvasToWindow);
+  window.removeEventListener("keydown", handleKeyDown);
+
+  if (canvas.value) {
+    canvas.value.removeEventListener("click", onCanvasClick);
+    canvas.value.removeEventListener("mousedown", onMouseDown);
+    canvas.value.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+  }
+});
 </script>
