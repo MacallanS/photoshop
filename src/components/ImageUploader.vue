@@ -224,9 +224,9 @@ function onMouseUp() {
 }
 
 function handleKeyDown(event) {
-  if (event.key === "h" || event.key === "H") {
+  if (event.key === "h" || event.key === "Р" || event.key === "р" || event.key === "H") {
     activeTool.value = "hand";
-  } else if (event.key === "e" || event.key === "E") {
+  } else if (event.key === "e" || event.key === "E" || event.key === "У" || event.key === "у") {
     activeTool.value = "eyedropper";
   }
 }

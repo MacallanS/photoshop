@@ -76,7 +76,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { rgbToXyz, xyzToLab, labToOklch, getContrast } from "@/utils/colorConverters";
+const { rgbToXyz, xyzToLab, labToOklch, getContrast } = require('../utils/colorConverters');
 
 const props = defineProps({
   firstColor: Object,

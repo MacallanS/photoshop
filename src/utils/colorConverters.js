@@ -53,7 +53,6 @@ function getContrast(color1, color2) {
   return (brightest + 0.05) / (darkest + 0.05);
 }
 
-// Правильный экспорт для CommonJS
 module.exports = {
   rgbToXyz,
   xyzToLab,
