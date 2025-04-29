@@ -17,8 +17,12 @@
     </v-navigation-drawer>
 
     <v-main style="background-color: #121212">
-      <v-container fluid class="pa-3" style="position: relative; height: 100%;">
-        <v-card flat class="d-flex flex-column align-center justify-start" style="background-color: #1e1e1e; height: 90vh; border: 2px dashed #555;">
+      <v-container fluid class="pa-3" style="position: relative; height: 100%">
+        <v-card
+          flat
+          class="d-flex flex-column align-center justify-start"
+          style="background-color: #1e1e1e; height: 90vh; border: 2px dashed #555"
+        >
           <input
             ref="hiddenInput"
             type="file"
@@ -33,16 +37,16 @@
             v-show="imageLoaded"
             ref="canvasContainer"
             class="d-flex justify-center align-center"
-            style="flex: 1; width: 100%; height: 100%; overflow: auto;"
+            style="flex: 1; width: 100%; height: 100%; overflow: auto"
           >
             <canvas ref="canvas" />
           </div>
-
           <ColorInfoPanel
-            v-if="activeTool === 'eyedropper' && (firstColor || secondColor)"
+            v-if="activeTool === 'eyedropper'"
             :firstColor="firstColor"
             :secondColor="secondColor"
-            style="width: 100%; background-color: #2a2a2a;"
+            class="mt-2"
+            style="width: 100%; background-color: #2a2a2a"
           />
         </v-card>
 
@@ -59,6 +63,28 @@
           :height="imageHeight"
           :depth="depthText"
         />
+        <v-card
+          flat
+          class="d-flex flex-column gap-2 pa-4"
+          style="background-color: #2a2a2a; width: 320px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.4); position: absolute; bottom: 20px; right: 40%; z-index: 10;"
+        >
+          <div class="d-flex align-center" style="justify-content: space-between;">
+            <span class="text-subtitle-2 font-weight-medium text-grey-lighten-2">Масштаб</span>
+            <span class="text-subtitle-2 font-weight-bold text-white">{{ Math.round(scale * 100) }}%</span>
+          </div>
+          <v-slider
+            v-model="scale"
+            min="0.1"
+            max="5"
+            step="0.1"
+            thumb-label
+            color="deep-purple-accent-4"
+            track-color="grey darken-1"
+            track-fill-color="deep-purple-accent-2"
+          />
+        </v-card>
+
+      
       </v-container>
     </v-main>
   </v-app>
@@ -96,6 +122,7 @@ let offsetY = 0;
 let isDragging = false;
 let startX = 0;
 let startY = 0;
+const scale = ref(1);
 
 function triggerUpload() {
   hiddenInput.value?.click();
@@ -158,7 +185,6 @@ function onFileSelected(event) {
   }
 }
 
-
 function fitCanvasToWindow() {
   if (canvas.value) {
     canvas.value.width = window.innerWidth;
@@ -168,7 +194,16 @@ function fitCanvasToWindow() {
 
 function drawImage() {
   if (canvas.value && image.value) {
-    clearAndDrawImageCentered(canvas.value, image.value, offsetX, offsetY, imageWidth.value, imageHeight.value);
+    const ctx = canvas.value.getContext("2d");
+    ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
+
+    const drawWidth = imageWidth.value * scale.value;
+    const drawHeight = imageHeight.value * scale.value;
+
+    const centerX = (canvas.value.width - drawWidth) / 2 + offsetX;
+    const centerY = (canvas.value.height - drawHeight) / 2 + offsetY;
+
+    ctx.drawImage(image.value, centerX, centerY, drawWidth, drawHeight);
   }
 }
 
@@ -226,7 +261,12 @@ function onMouseUp() {
 function handleKeyDown(event) {
   if (event.key === "h" || event.key === "Р" || event.key === "р" || event.key === "H") {
     activeTool.value = "hand";
-  } else if (event.key === "e" || event.key === "E" || event.key === "У" || event.key === "у") {
+  } else if (
+    event.key === "e" ||
+    event.key === "E" ||
+    event.key === "У" ||
+    event.key === "у"
+  ) {
     activeTool.value = "eyedropper";
   }
 }
@@ -241,9 +281,10 @@ function handleResizeResizeDialog({ width, height, algorithm }) {
     imageHeight.value
   );
 
-  const resized = algorithm === "nearest"
-    ? nearestNeighborResize(srcData, width, height)
-    : bilinearResize(srcData, width, height);
+  const resized =
+    algorithm === "nearest"
+      ? nearestNeighborResize(srcData, width, height)
+      : bilinearResize(srcData, width, height);
 
   imageWidth.value = width;
   imageHeight.value = height;
@@ -258,8 +299,13 @@ function handleResizeResizeDialog({ width, height, algorithm }) {
 
 watch(activeTool, (tool) => {
   if (canvas.value) {
-    canvas.value.style.cursor = tool === "hand" ? "grab" : (tool === "eyedropper" ? "crosshair" : "default");
+    canvas.value.style.cursor =
+      tool === "hand" ? "grab" : tool === "eyedropper" ? "crosshair" : "default";
   }
+});
+
+watch(scale, () => {
+  drawImage();
 });
 
 onMounted(() => {
