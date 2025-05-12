@@ -1,5 +1,5 @@
 <template>
-  <v-app>
+  <v-app class="app">
     <v-main>
       <ImageUploader />
     </v-main>
@@ -9,3 +9,11 @@
 <script setup>
 import ImageUploader from './components/ImageUploader.vue';
 </script>
+
+<style>
+.app {
+  overflow: hidden;
+}
+
+
+</style>

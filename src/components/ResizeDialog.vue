@@ -3,12 +3,17 @@
     <v-card>
       <v-card-title class="text-h6">Изменение размера</v-card-title>
       <v-card-text>
-        <v-select v-model="unit" :items="['Проценты', 'Пиксели']" label="Единицы" />
+        <v-select
+          v-model="unit"
+          :items="['Проценты', 'Пиксели']"
+          label="Единицы"
+        />
 
         <v-row>
           <v-col>
             <v-text-field
               v-model.number="width"
+              @input="lastChanged = 'width'"
               :label="unit === 'Проценты' ? 'Ширина (%)' : 'Ширина (px)'"
               type="number"
               :rules="[(v) => v > 0 || 'Введите положительное число']"
@@ -17,10 +22,10 @@
           <v-col>
             <v-text-field
               v-model.number="height"
+              @input="lastChanged = 'height'"
               :label="unit === 'Проценты' ? 'Высота (%)' : 'Высота (px)'"
               type="number"
               :rules="[(v) => v > 0 || 'Введите положительное число']"
-              :disabled="keepRatio"
             />
           </v-col>
         </v-row>
@@ -54,7 +59,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, watch, computed } from "vue";
 
 const props = defineProps({
   modelValue: Boolean,
@@ -64,26 +69,52 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "resize"]);
 
 const dialogVisible = ref(props.modelValue);
-watch(
-  () => props.modelValue,
-  (v) => (dialogVisible.value = v)
-);
+watch(() => props.modelValue, (v) => {
+  dialogVisible.value = v;
+});
 watch(dialogVisible, (v) => emit("update:modelValue", v));
 
 const width = ref(100);
 const height = ref(100);
-const unit = ref("Проценты");
+const unit = ref("Пиксели");
 const keepRatio = ref(false);
 const algorithm = ref("bilinear");
+const lastChanged = ref("width");
 
-const aspectRatio = computed(() => props.currentWidth / props.currentHeight);
+watch(
+  dialogVisible,
+  (open) => {
+    if (open) {
+      if (unit.value === "Проценты") {
+        width.value = 100;
+        height.value = 100;
+      } else {
+        width.value = props.currentWidth;
+        height.value = props.currentHeight;
+      }
+    }
+  },
+  { immediate: true }
+);
 
-watch([width, unit, keepRatio], ([w, u, kr]) => {
+const aspectRatio = computed(() =>
+  props.currentHeight !== 0 ? props.currentWidth / props.currentHeight : 1
+);
+
+watch([width, height, unit, keepRatio], ([w, h, u, kr]) => {
   if (!kr) return;
   if (u === "Проценты") {
-    height.value = w;
+    if (lastChanged.value === "width") {
+      height.value = w;
+    } else {
+      width.value = h;
+    }
   } else {
-    height.value = Math.round(w / aspectRatio.value);
+    if (lastChanged.value === "width") {
+      height.value = Math.round(w / aspectRatio.value);
+    } else {
+      width.value = Math.round(h * aspectRatio.value);
+    }
   }
 });
 
@@ -95,8 +126,6 @@ const resultWidth = computed(() =>
 const resultHeight = computed(() =>
   unit.value === "Проценты"
     ? Math.round((props.currentHeight * height.value) / 100)
-    : keepRatio.value
-    ? Math.round(resultWidth.value / aspectRatio.value)
     : height.value
 );
 
@@ -105,7 +134,9 @@ const resultMegapixels = computed(() => (resultPixels.value / 1_000_000).toFixed
 const formattedOldPixels = computed(() =>
   (props.currentWidth * props.currentHeight).toLocaleString("ru-RU")
 );
-const formattedNewPixels = computed(() => resultPixels.value.toLocaleString("ru-RU"));
+const formattedNewPixels = computed(() =>
+  resultPixels.value.toLocaleString("ru-RU")
+);
 
 function emitResize() {
   emit("resize", {

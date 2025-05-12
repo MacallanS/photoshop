@@ -1,4 +1,4 @@
-function rgbToXyz({ r, g, b }) {
+export function rgbToXyz({ r, g, b }) {
   r /= 255;
   g /= 255;
   b /= 255;
@@ -14,7 +14,7 @@ function rgbToXyz({ r, g, b }) {
   return { x: x * 100, y: y * 100, z: z * 100 };
 }
 
-function xyzToLab({ x, y, z }) {
+export function xyzToLab({ x, y, z }) {
   x /= 95.047;
   y /= 100.000;
   z /= 108.883;
@@ -30,13 +30,13 @@ function xyzToLab({ x, y, z }) {
   return { l, a, b };
 }
 
-function labToOklch({ l, a, b }) {
+export function labToOklch({ l, a, b }) {
   const c = Math.sqrt(a * a + b * b);
   const h = Math.atan2(b, a) * (180 / Math.PI);
   return { l, c, h };
 }
 
-function getContrast(color1, color2) {
+export function getContrast(color1, color2) {
   function luminance(r, g, b) {
     r /= 255; g /= 255; b /= 255;
     r = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4);
@@ -53,9 +53,9 @@ function getContrast(color1, color2) {
   return (brightest + 0.05) / (darkest + 0.05);
 }
 
-module.exports = {
-  rgbToXyz,
-  xyzToLab,
-  labToOklch,
-  getContrast,
-};
+// module.exports = {
+//   rgbToXyz,
+//   xyzToLab,
+//   labToOklch,
+//   getContrast,
+// };
