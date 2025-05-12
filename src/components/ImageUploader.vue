@@ -406,7 +406,7 @@ function toggleLayerVisibility(id) {
 function updateLayer(updated) {
   const index = layers.value.findIndex((l) => l.id === updated.id);
   if (index !== -1) {
-    layers.value[index] = { ...updated };
+    layers.value[index] = { ...layers.value[index], ...updated };
     drawImage();
   }
 }

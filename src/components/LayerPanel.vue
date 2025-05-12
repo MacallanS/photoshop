@@ -34,9 +34,9 @@
                 min="0"
                 max="1"
                 step="0.01"
-                @input="$emit('update-layer', layer)"
                 hide-details
                 density="compact"
+                @update:modelValue="() => $emit('update-layer', { ...layer })"
               />
             </v-col>
             <v-col cols="4">
