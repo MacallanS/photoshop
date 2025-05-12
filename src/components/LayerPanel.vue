@@ -34,7 +34,7 @@
                 min="0"
                 max="1"
                 step="0.01"
-                @change="$emit('update-layer', layer)"
+                @input="$emit('update-layer', layer)"
                 hide-details
                 density="compact"
               />
@@ -72,7 +72,7 @@
       </v-list-item>
 
       <v-divider class="my-2" />
-      
+
       <v-list-item @click="$emit('toggle-alpha-visibility')" class="alpha-action">
         <template #prepend>
           <v-icon class="me-2">mdi-alpha-a</v-icon>
@@ -103,7 +103,7 @@ const emit = defineEmits([
   "update:activeLayerId",
   "update-layer",
   "toggle-alpha-visibility",
-  "remove-alpha-channels"
+  "remove-alpha-channels",
 ]);
 
 const blendModes = [
