@@ -23,7 +23,10 @@ const color = ref("#ff0000");
 
 const props = defineProps({
   modelValue: Boolean,
+  width: Number,
+  height: Number,
 });
+
 const emit = defineEmits(["update:modelValue", "add-layer"]);
 
 const show = ref(props.modelValue);
@@ -34,12 +37,16 @@ watch(
 watch(show, (val) => emit("update:modelValue", val));
 
 function submit() {
+  const w = props.width || 256;
+  const h = props.height || 256;
+
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
+  canvas.width = w;
+  canvas.height = h;
+
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = color.value;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, w, h);
 
   const img = new Image();
   img.onload = () => {

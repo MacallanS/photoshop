@@ -13,6 +13,9 @@
         <v-list-item @click="resizeDialog = true" :disabled="!imageLoaded">
           <v-list-item-title>Изменить размер</v-list-item-title>
         </v-list-item>
+        <v-list-item @click="curveDialog = true" :disabled="!imageLoaded">
+          <v-list-item-title>Градационные кривые</v-list-item-title>
+        </v-list-item>
       </v-list>
     </v-navigation-drawer>
 
@@ -43,13 +46,6 @@
               >
                 <canvas ref="canvas" />
               </div>
-
-              <ColorInfoPanel
-                v-if="activeTool === 'eyedropper' && (firstColor || secondColor)"
-                :firstColor="firstColor"
-                :secondColor="secondColor"
-                style="width: 100%; background-color: #2a2a2a"
-              />
             </v-card>
 
             <v-card
@@ -57,13 +53,12 @@
               class="pa-2 d-flex align-center justify-center"
               style="
                 position: absolute;
-                bottom: 16px;
-                left: 50%;
-                transform: translateX(-50%);
-                width: 300px;
+                bottom: 5px;
+                right: 11px;
+                width: 397px;
                 background-color: #2a2a2a;
                 z-index: 10;
-                border-radius: 8px;
+                border-radius: 4px;
               "
             >
               <v-slider
@@ -76,9 +71,9 @@
                 @update:modelValue="drawImage"
               >
                 <template #append>
-                  <span style="color: white; width: 50px; text-align: center">
-                    {{ zoom }}%
-                  </span>
+                  <span style="color: white; width: 50px; text-align: center"
+                    >{{ zoom }}%</span
+                  >
                 </template>
               </v-slider>
             </v-card>
@@ -93,9 +88,12 @@
               @toggle-visibility="toggleLayerVisibility"
               @update-layer="updateLayer"
               @update:activeLayerId="(id) => (activeLayerId = id)"
-              @reorder-layers="(newOrder) => (layers = newOrder)"
               @toggle-alpha-visibility="toggleAlphaVisibility"
               @remove-alpha-channels="removeAlphaChannels"
+              @move-layer-up="moveLayerUp"
+              @move-layer-down="moveLayerDown"
+              @toggle-layer-alpha="toggleLayerAlpha"
+              @remove-layer-alpha="removeLayerAlpha"
             />
           </v-col>
         </v-row>
@@ -107,13 +105,29 @@
           :current-height="imageHeight"
           @resize="handleResizeResizeDialog"
         />
+        <ColorInfoPanel
+          v-if="activeTool === 'eyedropper' && (firstColor || secondColor)"
+          :firstColor="firstColor"
+          :secondColor="secondColor"
+          style="width: 100%; background-color: #2a2a2a"
+        />
+        <AddLayerDialog
+          v-model="showAddLayer"
+          :width="imageWidth"
+          :height="imageHeight"
+           @add-layer="handleAddLayer"
+        />
 
-        <AddLayerDialog v-model="showAddLayer" @add-layer="handleAddLayer" />
         <ImageInfo
           v-if="imageLoaded"
           :width="imageWidth"
           :height="imageHeight"
           :depth="depthText"
+        />
+        <CurvesDialog
+          v-model="curveDialog"
+          :image="layers.find((l) => l.id === activeLayerId)?.image"
+          @apply="onApplyCurveCorrection"
         />
       </v-container>
     </v-main>
@@ -133,7 +147,9 @@ import { nearestNeighborResize, bilinearResize } from "@/utils/interpolation";
 import { pickColorAtCursor } from "@/utils/canvasHelpers";
 import { parseGB7 } from "@/utils/gb7Parser";
 import { nextTick } from "vue";
+import CurvesDialog from "@/components/CurvesDialog.vue";
 
+const curveDialog = ref(false);
 const drawer = ref(false);
 const hiddenInput = ref(null);
 const canvas = ref(null);
@@ -160,6 +176,22 @@ let offsetY = 0;
 let isDragging = false;
 let startX = 0;
 let startY = 0;
+
+function moveLayerUp(index) {
+  if (index <= 0) return;
+  const temp = layers.value[index - 1];
+  layers.value[index - 1] = layers.value[index];
+  layers.value[index] = temp;
+  drawImage();
+}
+
+function moveLayerDown(index) {
+  if (index >= layers.value.length - 1) return;
+  const temp = layers.value[index + 1];
+  layers.value[index + 1] = layers.value[index];
+  layers.value[index] = temp;
+  drawImage();
+}
 
 function getBlendMode(mode) {
   const map = {
@@ -250,9 +282,34 @@ function drawImage() {
 
   const visibleLayers = layers.value.filter((l) => l.visible);
   visibleLayers.forEach((layer) => {
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    const scale = zoom.value / 100;
+    tempCanvas.width = imageWidth.value;
+    tempCanvas.height = imageHeight.value;
+    tempCtx.drawImage(layer.image, 0, 0);
+
+    if (layer.hideAlpha) {
+      const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        imgData.data[i + 3] = 255;
+      }
+      tempCtx.putImageData(imgData, 0, 0);
+    }
+
     ctx.globalAlpha = layer.opacity;
     ctx.globalCompositeOperation = getBlendMode(layer.blendMode);
-    ctx.drawImage(layer.image, 0, 0, scaledWidth, scaledHeight);
+    ctx.drawImage(
+      tempCanvas,
+      0,
+      0,
+      tempCanvas.width,
+      tempCanvas.height,
+      0,
+      0,
+      scaledWidth,
+      scaledHeight
+    );
   });
 
   ctx.globalAlpha = 1;
@@ -371,6 +428,20 @@ function addLayer(image, name = "Новый слой") {
   ctx.drawImage(image, 0, 0, 50, 50);
   const preview = previewCanvas.toDataURL();
 
+  let hasAlpha = false;
+  const alphaCanvas = document.createElement("canvas");
+  alphaCanvas.width = image.width;
+  alphaCanvas.height = image.height;
+  const alphaCtx = alphaCanvas.getContext("2d");
+  alphaCtx.drawImage(image, 0, 0);
+  const alphaData = alphaCtx.getImageData(0, 0, image.width, image.height).data;
+  for (let i = 0; i < alphaData.length; i += 4) {
+    if (alphaData[i + 3] < 255) {
+      hasAlpha = true;
+      break;
+    }
+  }
+
   const newLayer = {
     id: Date.now(),
     name,
@@ -379,21 +450,52 @@ function addLayer(image, name = "Новый слой") {
     opacity: 1,
     visible: true,
     blendMode: "normal",
-    isAlpha: name.toLowerCase().includes("alpha") || name.toLowerCase().includes("mask"),
+    isAlpha: /alpha|mask/i.test(name),
+    hasAlpha,
+    hideAlpha: false,
   };
 
   layers.value.push(newLayer);
   activeLayerId.value = newLayer.id;
   imageLoaded.value = true;
-  imageWidth.value = image.width;
-  imageHeight.value = image.height;
+
+  imageWidth.value = Math.max(imageWidth.value, image.width);
+  imageHeight.value = Math.max(imageHeight.value, image.height);
+
   drawImage();
 }
 
 function removeLayer(id) {
   layers.value = layers.value.filter((l) => l.id !== id);
-  drawImage();
+
+  if (layers.value.length === 0) {
+    imageLoaded.value = false;
+    activeLayerId.value = null;
+
+    const ctx = canvas.value?.getContext("2d");
+    if (ctx && canvas.value) {
+      ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
+    }
+    return;
+  }
+
+  if (!layers.value.find((l) => l.id === activeLayerId.value)) {
+    activeLayerId.value = layers.value[0].id;
+  }
+
+  nextTick(() => {
+    drawImage();
+  });
 }
+watch(
+  layers,
+  () => {
+    if (imageLoaded.value) {
+      nextTick(drawImage);
+    }
+  },
+  { deep: true }
+);
 
 function toggleLayerVisibility(id) {
   const layer = layers.value.find((l) => l.id === id);
@@ -465,6 +567,55 @@ onUnmounted(() => {
     window.removeEventListener("mouseup", onMouseUp);
   }
 });
+
+function removeLayerAlpha(id) {
+  const layer = layers.value.find((l) => l.id === id);
+  if (!layer || !layer.hasAlpha) return;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = layer.image.width;
+  canvas.height = layer.image.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(layer.image, 0, 0);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < imageData.data.length; i += 4) {
+    imageData.data[i + 3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  const img = new Image();
+  img.onload = () => {
+    layer.image = img;
+    layer.hasAlpha = false;
+    layer.hideAlpha = false;
+    drawImage();
+  };
+  img.src = canvas.toDataURL();
+}
+
+function toggleLayerAlpha(id) {
+  const layer = layers.value.find((l) => l.id === id);
+  if (!layer || !layer.hasAlpha) return;
+  layer.hideAlpha = !layer.hideAlpha;
+  drawImage();
+}
+
+function onApplyCurveCorrection(newImg) {
+  const layer = layers.value.find((l) => l.id === activeLayerId.value);
+  if (!layer) return;
+
+  layer.image = newImg;
+
+  const previewCanvas = document.createElement("canvas");
+  previewCanvas.width = 50;
+  previewCanvas.height = 50;
+  const ctx = previewCanvas.getContext("2d");
+  ctx.drawImage(newImg, 0, 0, 50, 50);
+  layer.preview = previewCanvas.toDataURL();
+
+  drawImage();
+}
 </script>
 
 <style scoped>

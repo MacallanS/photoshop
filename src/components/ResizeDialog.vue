@@ -7,6 +7,7 @@
           v-model="unit"
           :items="['Проценты', 'Пиксели']"
           label="Единицы"
+          variant="outlined"
         />
 
         <v-row>
@@ -30,17 +31,25 @@
           </v-col>
         </v-row>
 
-        <v-checkbox v-model="keepRatio" label="Сохранять пропорции" />
+        <v-checkbox v-model="keepRatio" label="Сохранять пропорции" density="compact" />
 
         <v-select
           v-model="algorithm"
-          :items="[
-            { title: 'Ближайший сосед', value: 'nearest' },
-            { title: 'Билинейная интерполяция', value: 'bilinear' },
-          ]"
+          :items="interpolationItems"
           label="Алгоритм интерполяции"
           item-title="title"
           item-value="value"
+          variant="outlined"
+        />
+
+        <v-alert
+          variant="outlined"
+          density="compact"
+          class="mt-2"
+          border="start"
+          color="grey darken-1"
+          style="font-size: 13px"
+          :text="interpolationItems.find((i) => i.value === algorithm)?.tooltip"
         />
 
         <div class="mt-3 text-caption">
@@ -69,17 +78,31 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "resize"]);
 
 const dialogVisible = ref(props.modelValue);
-watch(() => props.modelValue, (v) => {
-  dialogVisible.value = v;
-});
+watch(
+  () => props.modelValue,
+  (v) => (dialogVisible.value = v)
+);
 watch(dialogVisible, (v) => emit("update:modelValue", v));
 
 const width = ref(100);
 const height = ref(100);
 const unit = ref("Пиксели");
 const keepRatio = ref(false);
-const algorithm = ref("bilinear");
 const lastChanged = ref("width");
+const algorithm = ref("bilinear");
+
+const interpolationItems = [
+  {
+    title: "Ближайший сосед",
+    value: "nearest",
+    tooltip: "Быстрый, но может давать «рваные» края. Подходит для пиксель-арта.",
+  },
+  {
+    title: "Билинейная интерполяция",
+    value: "bilinear",
+    tooltip: "Гладкое масштабирование. Может немного размывать изображение.",
+  },
+];
 
 watch(
   dialogVisible,
@@ -98,23 +121,17 @@ watch(
 );
 
 const aspectRatio = computed(() =>
-  props.currentHeight !== 0 ? props.currentWidth / props.currentHeight : 1
+  props.currentHeight > 0 ? props.currentWidth / props.currentHeight : 1
 );
 
 watch([width, height, unit, keepRatio], ([w, h, u, kr]) => {
   if (!kr) return;
   if (u === "Проценты") {
-    if (lastChanged.value === "width") {
-      height.value = w;
-    } else {
-      width.value = h;
-    }
+    if (lastChanged.value === "width") height.value = w;
+    else width.value = h;
   } else {
-    if (lastChanged.value === "width") {
-      height.value = Math.round(w / aspectRatio.value);
-    } else {
-      width.value = Math.round(h * aspectRatio.value);
-    }
+    if (lastChanged.value === "width") height.value = Math.round(w / aspectRatio.value);
+    else width.value = Math.round(h * aspectRatio.value);
   }
 });
 
@@ -123,6 +140,7 @@ const resultWidth = computed(() =>
     ? Math.round((props.currentWidth * width.value) / 100)
     : width.value
 );
+
 const resultHeight = computed(() =>
   unit.value === "Проценты"
     ? Math.round((props.currentHeight * height.value) / 100)
@@ -131,12 +149,12 @@ const resultHeight = computed(() =>
 
 const resultPixels = computed(() => resultWidth.value * resultHeight.value);
 const resultMegapixels = computed(() => (resultPixels.value / 1_000_000).toFixed(2));
+
 const formattedOldPixels = computed(() =>
   (props.currentWidth * props.currentHeight).toLocaleString("ru-RU")
 );
-const formattedNewPixels = computed(() =>
-  resultPixels.value.toLocaleString("ru-RU")
-);
+
+const formattedNewPixels = computed(() => resultPixels.value.toLocaleString("ru-RU"));
 
 function emitResize() {
   emit("resize", {

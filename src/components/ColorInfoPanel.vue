@@ -1,8 +1,7 @@
 <template>
   <v-card
     v-if="firstColor"
-    class="pa-3"
-    style="position: absolute; top: 20px; left: 20px; z-index: 20; max-width: 300px"
+    style="position: absolute; bottom: 60px; right: 10px; z-index: 20; max-width: 397px"
   >
     <v-card-title>Информация о цветах</v-card-title>
     <v-card-text>
@@ -19,41 +18,27 @@
 
       <v-divider class="my-2"></v-divider>
 
-      <div v-if="firstColor">
-        <b>RGB:</b> {{ formatRgb(firstColor) }}
-        <v-tooltip bottom>
-          <template #activator="{ props }">
-            <v-icon v-bind="props" small>mdi-information</v-icon>
-          </template>
-          <span>R, G, B ∈ [0..255]</span>
-        </v-tooltip>
-        <br />
-        <b>XYZ:</b> {{ formatXyz(firstColor) }}
-        <v-tooltip bottom>
-          <template #activator="{ props }">
-            <v-icon v-bind="props" small>mdi-information</v-icon>
-          </template>
-          <span>X, Y, Z описывают восприятие цвета, нормализованные</span>
-        </v-tooltip>
-        <br />
-        <b>Lab:</b> {{ formatLab(firstColor) }}
-        <v-tooltip bottom>
-          <template #activator="{ props }">
-            <v-icon v-bind="props" small>mdi-information</v-icon>
-          </template>
-          <span>L=яркость, a=зеленый-красный, b=синий-желтый</span>
-        </v-tooltip>
-        <br />
-        <b>OKLch:</b> {{ formatOklch(firstColor) }}
-        <v-tooltip bottom>
-          <template #activator="{ props }">
-            <v-icon v-bind="props" small>mdi-information</v-icon>
-          </template>
-          <span>L=Lightness, C=Chroma, h=Hue</span>
-        </v-tooltip>
+      <div class="d-flex justify-space-between mb-2">
+        <div>
+          <b>Цвет 1</b><br />
+          <b>Позиция:</b> ({{ firstColor.x ?? "-" }}, {{ firstColor.y ?? "-" }})<br />
+          <b>RGB:</b> {{ formatRgb(firstColor) }}<br />
+          <b>XYZ:</b> {{ formatXyz(firstColor) }}<br />
+          <b>Lab:</b> {{ formatLab(firstColor) }}<br />
+          <b>OKLch:</b> {{ formatOklch(firstColor) }}
+        </div>
+
+        <div v-if="secondColor">
+          <b>Цвет 2</b><br />
+          <b>Позиция:</b> ({{ secondColor.x ?? "-" }}, {{ secondColor.y ?? "-" }})<br />
+          <b>RGB:</b> {{ formatRgb(secondColor) }}<br />
+          <b>XYZ:</b> {{ formatXyz(secondColor) }}<br />
+          <b>Lab:</b> {{ formatLab(secondColor) }}<br />
+          <b>OKLch:</b> {{ formatOklch(secondColor) }}
+        </div>
       </div>
 
-      <v-divider class="my-2"></v-divider>
+      <v-divider class="my-2" v-if="secondColor"></v-divider>
 
       <div v-if="firstColor && secondColor">
         <b>Контраст:</b> {{ contrast.toFixed(2) }}
@@ -76,7 +61,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { rgbToXyz, xyzToLab, labToOklch, getContrast } from '../utils/colorConverters';
+import { rgbToXyz, xyzToLab, labToOklch, getContrast } from "../utils/colorConverters";
 
 const props = defineProps({
   firstColor: Object,

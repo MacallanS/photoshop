@@ -3,7 +3,7 @@
     color="grey-lighten-4"
     flat
     class="pa-3"
-    style="position: absolute; bottom: 20px; right: 20px; z-index: 10; max-width: 250px"
+    style="position: absolute; bottom: 40px; left: 20px; z-index: 10; max-width: 250px"
   >
     <div class="text-subtitle-2 mb-2">Информация</div>
     <v-list-item>
