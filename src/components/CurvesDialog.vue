@@ -1,57 +1,59 @@
 <template>
-  <v-dialog v-model="dialogVisible" max-width="600">
+  <v-dialog v-model="dialogVisible" max-width="800" location="top right">
     <v-card>
       <v-card-title class="text-h6">Градационная коррекция (Кривые)</v-card-title>
       <v-card-text>
-        <svg
-          width="256"
-          height="256"
-          viewBox="0 0 256 256"
-          style="background: #111; border: 1px solid #444"
-        >
-          <polyline :points="rPoints" fill="none" stroke="red" stroke-width="1" />
-          <polyline :points="gPoints" fill="none" stroke="lime" stroke-width="1" />
-          <polyline :points="bPoints" fill="none" stroke="blue" stroke-width="1" />
-          <polyline :points="linePoints" stroke="white" stroke-width="2" />
-          <line
-            x1="0"
-            :y1="255 - y1"
-            :x2="x1"
-            :y2="255 - y1"
-            stroke="white"
-            stroke-dasharray="4"
-          />
-          <line
-            :x1="x2"
-            :y1="255 - y2"
-            x2="255"
-            :y2="255 - y2"
-            stroke="white"
-            stroke-dasharray="4"
-          />
-        </svg>
+        <!-- Три отдельных графика -->
+        <v-row dense>
+          <v-col cols="4">
+            <div class="text-caption text-center mb-1">Красный</div>
+            <svg width="256" height="256" viewBox="0 0 256 256" style="background: #111; border: 1px solid #444">
+              <polyline :points="rPoints" fill="none" stroke="red" stroke-width="1" />
+              <polyline :points="linePoints" stroke="white" stroke-width="2" />
+              <line x1="0" :y1="255 - y1" :x2="x1" :y2="255 - y1" stroke="white" stroke-dasharray="4" />
+              <line :x1="x2" :y1="255 - y2" x2="255" :y2="255 - y2" stroke="white" stroke-dasharray="4" />
+            </svg>
+          </v-col>
+          <v-col cols="4">
+            <div class="text-caption text-center mb-1">Зелёный</div>
+            <svg width="256" height="256" viewBox="0 0 256 256" style="background: #111; border: 1px solid #444">
+              <polyline :points="gPoints" fill="none" stroke="lime" stroke-width="1" />
+              <polyline :points="linePoints" stroke="white" stroke-width="2" />
+              <line x1="0" :y1="255 - y1" :x2="x1" :y2="255 - y1" stroke="white" stroke-dasharray="4" />
+              <line :x1="x2" :y1="255 - y2" x2="255" :y2="255 - y2" stroke="white" stroke-dasharray="4" />
+            </svg>
+          </v-col>
+          <v-col cols="4">
+            <div class="text-caption text-center mb-1">Синий</div>
+            <svg width="256" height="256" viewBox="0 0 256 256" style="background: #111; border: 1px solid #444">
+              <polyline :points="bPoints" fill="none" stroke="blue" stroke-width="1" />
+              <polyline :points="linePoints" stroke="white" stroke-width="2" />
+              <line x1="0" :y1="255 - y1" :x2="x1" :y2="255 - y1" stroke="white" stroke-dasharray="4" />
+              <line :x1="x2" :y1="255 - y2" x2="255" :y2="255 - y2" stroke="white" stroke-dasharray="4" />
+            </svg>
+          </v-col>
+        </v-row>
 
+        <!-- Поля ввода -->
         <v-row class="mt-3">
           <v-col cols="6">
             <v-text-field
               v-model.number="x1"
               label="Вход 1"
+              type="number"
               :max="x2 - 1"
               :rules="[
                 (v) => (v >= 0 && v <= 255) || '0–255',
-                (v) => v < x2 || 'X1 должен быть меньше X2',
+                (v) => v < x2 || 'X1 < X2'
               ]"
             />
           </v-col>
           <v-col cols="6">
             <v-text-field
-              v-model.number="x2"
-              label="Вход 2"
-              :min="x1 + 1"
-              :rules="[
-                (v) => (v >= 0 && v <= 255) || '0–255',
-                (v) => v > x1 || 'X2 должен быть больше X1',
-              ]"
+              v-model.number="y1"
+              label="Выход 1"
+              type="number"
+              :rules="[(v) => (v >= 0 && v <= 255) || '0–255']"
             />
           </v-col>
         </v-row>
@@ -62,7 +64,11 @@
               v-model.number="x2"
               label="Вход 2"
               type="number"
-              :rules="[(v) => (v >= 0 && v <= 255) || '0–255']"
+              :min="x1 + 1"
+              :rules="[
+                (v) => (v >= 0 && v <= 255) || '0–255',
+                (v) => v > x1 || 'X2 > X1'
+              ]"
             />
           </v-col>
           <v-col cols="6">
@@ -101,15 +107,10 @@ const props = defineProps({
   image: Object,
 });
 
-let originalImageSnapshot = null;
-
 const emit = defineEmits(["update:modelValue", "apply"]);
 
 const dialogVisible = ref(props.modelValue);
-watch(
-  () => props.modelValue,
-  (v) => (dialogVisible.value = v)
-);
+watch(() => props.modelValue, (v) => (dialogVisible.value = v));
 watch(dialogVisible, (v) => emit("update:modelValue", v));
 
 const x1 = ref(0);
@@ -119,12 +120,12 @@ const y2 = ref(255);
 const previewEnabled = ref(false);
 
 let previewWasApplied = false;
+let originalImageSnapshot = null;
 let originalImageData = null;
-let originalImage = null;
 
-const rHistogram = ref(new Array(256).fill(0));
-const gHistogram = ref(new Array(256).fill(0));
-const bHistogram = ref(new Array(256).fill(0));
+const rHistogram = ref([]);
+const gHistogram = ref([]);
+const bHistogram = ref([]);
 
 function getHistogram() {
   if (!props.image) return;
@@ -167,9 +168,7 @@ const gPoints = computed(() => gHistogram.value);
 const bPoints = computed(() => bHistogram.value);
 
 const linePoints = computed(() => {
-  return `0,${255 - y1.value} ${x1.value},${255 - y1.value} ${x2.value},${
-    255 - y2.value
-  } 255,${255 - y2.value}`;
+  return `0,${255 - y1.value} ${x1.value},${255 - y1.value} ${x2.value},${255 - y2.value} 255,${255 - y2.value}`;
 });
 
 function generateLUT(x1, y1, x2, y2) {
@@ -262,9 +261,9 @@ async function close() {
 watch(() => props.image, getHistogram);
 onMounted(getHistogram);
 
-watch([x1, x2], ([val1, val2]) => {
-  if (val1 >= val2) {
-    x2.value = val1 + 1 > 255 ? 255 : val1 + 1;
+watch([x1, x2], ([a, b]) => {
+  if (a >= b) {
+    x2.value = a + 1 > 255 ? 255 : a + 1;
   }
 });
 </script>
