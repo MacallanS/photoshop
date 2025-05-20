@@ -37,7 +37,7 @@
                 variant="text"
                 @click.stop="$emit('move-layer-up', props.layers.indexOf(layer))"
               >
-                <v-icon size="18">mdi-arrow-up</v-icon>
+                <v-icon size="18">mdi-arrow-down</v-icon>
               </v-btn>
               <v-btn
                 v-if="rIndex > 0"
@@ -46,7 +46,7 @@
                 variant="text"
                 @click.stop="$emit('move-layer-down', props.layers.indexOf(layer))"
               >
-                <v-icon size="18">mdi-arrow-down</v-icon>
+                <v-icon size="18">mdi-arrow-up</v-icon>
               </v-btn>
             </div>
           </div>
