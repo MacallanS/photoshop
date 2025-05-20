@@ -36,16 +36,22 @@
             <v-text-field
               v-model.number="x1"
               label="Вход 1"
-              type="number"
-              :rules="[(v) => (v >= 0 && v <= 255) || '0–255']"
+              :max="x2 - 1"
+              :rules="[
+                (v) => (v >= 0 && v <= 255) || '0–255',
+                (v) => v < x2 || 'X1 должен быть меньше X2',
+              ]"
             />
           </v-col>
           <v-col cols="6">
             <v-text-field
-              v-model.number="y1"
-              label="Выход 1"
-              type="number"
-              :rules="[(v) => (v >= 0 && v <= 255) || '0–255']"
+              v-model.number="x2"
+              label="Вход 2"
+              :min="x1 + 1"
+              :rules="[
+                (v) => (v >= 0 && v <= 255) || '0–255',
+                (v) => v > x1 || 'X2 должен быть больше X1',
+              ]"
             />
           </v-col>
         </v-row>
@@ -190,11 +196,11 @@ function applyToCanvas(lut) {
 
   for (let i = 0; i < newImageData.data.length; i += 4) {
     const a = newImageData.data[i + 3];
-    if (a === 0) continue; 
+    if (a === 0) continue;
 
-    newImageData.data[i] = lut[newImageData.data[i]];       
-    newImageData.data[i + 1] = lut[newImageData.data[i + 1]]; 
-    newImageData.data[i + 2] = lut[newImageData.data[i + 2]]; 
+    newImageData.data[i] = lut[newImageData.data[i]];
+    newImageData.data[i + 1] = lut[newImageData.data[i + 1]];
+    newImageData.data[i + 2] = lut[newImageData.data[i + 2]];
   }
 
   ctx.putImageData(newImageData, 0, 0);
@@ -207,7 +213,6 @@ function applyToCanvas(lut) {
     });
   });
 }
-
 
 async function applyPreview() {
   if (!previewEnabled.value) {
@@ -256,4 +261,10 @@ async function close() {
 
 watch(() => props.image, getHistogram);
 onMounted(getHistogram);
+
+watch([x1, x2], ([val1, val2]) => {
+  if (val1 >= val2) {
+    x2.value = val1 + 1 > 255 ? 255 : val1 + 1;
+  }
+});
 </script>
