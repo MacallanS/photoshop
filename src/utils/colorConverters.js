@@ -30,11 +30,12 @@ export function xyzToLab({ x, y, z }) {
   return { l, a, b };
 }
 
-export function labToOklch({ l, a, b }) {
+export function labToLch({ l, a, b }) {
   const c = Math.sqrt(a * a + b * b);
   const h = Math.atan2(b, a) * (180 / Math.PI);
   return { l, c, h };
 }
+
 
 export function getContrast(color1, color2) {
   function luminance(r, g, b) {
@@ -56,6 +57,6 @@ export function getContrast(color1, color2) {
 // module.exports = {
 //   rgbToXyz,
 //   xyzToLab,
-//   labToOklch,
+//   labToLch,
 //   getContrast,
 // };

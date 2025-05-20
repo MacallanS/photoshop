@@ -10,7 +10,7 @@
 
     <v-list density="compact">
       <v-list-item
-        v-for="(layer, index) in layers"
+        v-for="(layer, rIndex) in reversedLayers"
         :key="layer.id"
         :class="['layer-item', { 'active-layer': layer.id === activeLayerId }]"
         @click="$emit('update:activeLayerId', layer.id)"
@@ -28,23 +28,23 @@
 
         <div class="d-flex flex-column flex-grow-1">
           <div class="text-subtitle-2 d-flex justify-between align-center">
-            {{ layer.name }}
+            {{ truncateName(layer.name) }}
             <div class="d-flex">
               <v-btn
-                v-if="index > 0"
+                v-if="rIndex < reversedLayers.length - 1"
                 icon
                 size="x-small"
                 variant="text"
-                @click.stop="$emit('move-layer-up', index)"
+                @click.stop="$emit('move-layer-up', props.layers.indexOf(layer))"
               >
                 <v-icon size="18">mdi-arrow-up</v-icon>
               </v-btn>
               <v-btn
-                v-if="index < layers.length - 1"
+                v-if="rIndex > 0"
                 icon
                 size="x-small"
                 variant="text"
-                @click.stop="$emit('move-layer-down', index)"
+                @click.stop="$emit('move-layer-down', props.layers.indexOf(layer))"
               >
                 <v-icon size="18">mdi-arrow-down</v-icon>
               </v-btn>
@@ -54,9 +54,9 @@
           <v-row align="center" class="mt-1">
             <v-col cols="8">
               <v-tooltip location="bottom">
-                <template #activator="{ props }">
+                <template #activator="{ props: tooltipProps }">
                   <v-slider
-                    v-bind="props"
+                    v-bind="tooltipProps"
                     v-model="layer.opacity"
                     min="0"
                     max="1"
@@ -66,14 +66,17 @@
                     @update:modelValue="$emit('update-layer', { ...layer })"
                   />
                 </template>
-                <span>Настройка прозрачности (0 — полностью прозрачный, 1 — непрозрачный)</span>
+                <span
+                  >Настройка прозрачности (0 — полностью прозрачный, 1 —
+                  непрозрачный)</span
+                >
               </v-tooltip>
             </v-col>
             <v-col cols="4">
               <v-tooltip location="bottom">
-                <template #activator="{ props }">
+                <template #activator="{ props: tooltipProps }">
                   <v-select
-                    v-bind="props"
+                    v-bind="tooltipProps"
                     :items="blendModes"
                     item-title="value"
                     item-value="value"
@@ -139,7 +142,9 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed, watchEffect } from "vue";
+
+const props = defineProps({
   layers: Array,
   activeLayerId: Number,
 });
@@ -162,6 +167,24 @@ const blendModes = [
   { value: "screen", text: "Экран — делает изображение светлее." },
   { value: "overlay", text: "Наложение — усиливает контраст." },
 ];
+
+const reversedLayers = computed(() => props.layers.slice().reverse());
+
+function truncateName(name) {
+  return name.length > 12 ? name.slice(0, 12) + "…" : name;
+}
+
+watchEffect(() => {
+  for (const layer of props.layers) {
+    if (!layer.image) continue;
+    const previewCanvas = document.createElement("canvas");
+    previewCanvas.width = 48;
+    previewCanvas.height = 48;
+    const ctx = previewCanvas.getContext("2d");
+    ctx.drawImage(layer.image, 0, 0, 48, 48);
+    layer.preview = previewCanvas.toDataURL();
+  }
+});
 </script>
 
 <style scoped>

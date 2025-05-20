@@ -3,6 +3,12 @@
     <v-app-bar app color="black" dark>
       <v-app-bar-nav-icon @click="drawer = !drawer" />
       <v-toolbar-title>Загрузчик изображений</v-toolbar-title>
+
+      <v-spacer />
+
+      <div class="d-flex align-center" style="padding-right: 16px">
+        <ToolSelector v-model:activeTool="activeTool" />
+      </div>
     </v-app-bar>
 
     <v-navigation-drawer v-model="drawer" app temporary dark color="grey darken-3">
@@ -55,7 +61,7 @@
                 position: absolute;
                 bottom: 5px;
                 right: 11px;
-                width: 397px;
+                width: 23.5%;
                 background-color: #2a2a2a;
                 z-index: 10;
                 border-radius: 4px;
@@ -97,8 +103,6 @@
             />
           </v-col>
         </v-row>
-
-        <ToolSelector v-model:activeTool="activeTool" />
         <ResizeDialog
           v-model="resizeDialog"
           :current-width="imageWidth"
@@ -115,7 +119,7 @@
           v-model="showAddLayer"
           :width="imageWidth"
           :height="imageHeight"
-           @add-layer="handleAddLayer"
+          @add-layer="handleAddLayer"
         />
 
         <ImageInfo
@@ -328,7 +332,15 @@ function detectImageDepth(imageData) {
 
 function onCanvasClick(event) {
   if (activeTool.value !== "eyedropper") return;
-  const color = pickColorAtCursor(canvas.value, event);
+  const color = pickColorAtCursor(
+    canvas.value,
+    event,
+    imageWidth.value,
+    imageHeight.value,
+    zoom.value,
+    offsetX,
+    offsetY
+  );
   if (color) {
     if (event.shiftKey || event.ctrlKey || event.altKey) secondColor.value = color;
     else firstColor.value = color;

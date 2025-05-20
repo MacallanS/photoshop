@@ -1,7 +1,6 @@
 <template>
   <v-card
-    class="d-flex flex-column align-center pa-2"
-    style="position: absolute; top: 10px; right: 450px; z-index: 50; width: 80px"
+    class="d-flex flex align-center pa-2"
   >
     <v-btn
       icon

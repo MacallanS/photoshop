@@ -1,4 +1,4 @@
-const { rgbToXyz, xyzToLab, labToOklch, getContrast } = require('../utils/colorConverters');
+const { rgbToXyz, xyzToLab, labToLch, getContrast } = require('../utils/colorConverters');
 
 const EPSILON = 0.5; // Допустимая ошибка для сравнения
 
@@ -20,8 +20,8 @@ test('xyzToLab конвертирует XYZ в Lab', () => {
   expect(closeEnough(result.b, 67.22)).toBe(true);
 });
 
-test('labToOklch конвертирует Lab в Oklch', () => {
-  const result = labToOklch({ l: 53.24, a: 80.09, b: 67.20 });
+test('labToLch конвертирует Lab в Oklch', () => {
+  const result = labToLch({ l: 53.24, a: 80.09, b: 67.20 });
   expect(typeof result.l).toBe('number');
   expect(typeof result.c).toBe('number');
   expect(typeof result.h).toBe('number');

@@ -187,10 +187,14 @@ function applyToCanvas(lut) {
     originalImageData.width,
     originalImageData.height
   );
+
   for (let i = 0; i < newImageData.data.length; i += 4) {
-    newImageData.data[i] = lut[newImageData.data[i]];
-    newImageData.data[i + 1] = lut[newImageData.data[i + 1]];
-    newImageData.data[i + 2] = lut[newImageData.data[i + 2]];
+    const a = newImageData.data[i + 3];
+    if (a === 0) continue; 
+
+    newImageData.data[i] = lut[newImageData.data[i]];       
+    newImageData.data[i + 1] = lut[newImageData.data[i + 1]]; 
+    newImageData.data[i + 2] = lut[newImageData.data[i + 2]]; 
   }
 
   ctx.putImageData(newImageData, 0, 0);
@@ -203,6 +207,7 @@ function applyToCanvas(lut) {
     });
   });
 }
+
 
 async function applyPreview() {
   if (!previewEnabled.value) {
