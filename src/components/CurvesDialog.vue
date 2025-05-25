@@ -1,51 +1,43 @@
 <template>
-  <v-dialog v-model="dialogVisible" max-width="800" location="top right">
+  <v-dialog v-model="dialogVisible" max-width="600">
     <v-card>
       <v-card-title class="text-h6">Градационная коррекция (Кривые)</v-card-title>
       <v-card-text>
-        <!-- Три отдельных графика -->
-        <v-row dense>
-          <v-col cols="4">
-            <div class="text-caption text-center mb-1">Красный</div>
-            <svg width="256" height="256" viewBox="0 0 256 256" style="background: #111; border: 1px solid #444">
-              <polyline :points="rPoints" fill="none" stroke="red" stroke-width="1" />
-              <polyline :points="linePoints" stroke="white" stroke-width="2" />
-              <line x1="0" :y1="255 - y1" :x2="x1" :y2="255 - y1" stroke="white" stroke-dasharray="4" />
-              <line :x1="x2" :y1="255 - y2" x2="255" :y2="255 - y2" stroke="white" stroke-dasharray="4" />
-            </svg>
-          </v-col>
-          <v-col cols="4">
-            <div class="text-caption text-center mb-1">Зелёный</div>
-            <svg width="256" height="256" viewBox="0 0 256 256" style="background: #111; border: 1px solid #444">
-              <polyline :points="gPoints" fill="none" stroke="lime" stroke-width="1" />
-              <polyline :points="linePoints" stroke="white" stroke-width="2" />
-              <line x1="0" :y1="255 - y1" :x2="x1" :y2="255 - y1" stroke="white" stroke-dasharray="4" />
-              <line :x1="x2" :y1="255 - y2" x2="255" :y2="255 - y2" stroke="white" stroke-dasharray="4" />
-            </svg>
-          </v-col>
-          <v-col cols="4">
-            <div class="text-caption text-center mb-1">Синий</div>
-            <svg width="256" height="256" viewBox="0 0 256 256" style="background: #111; border: 1px solid #444">
-              <polyline :points="bPoints" fill="none" stroke="blue" stroke-width="1" />
-              <polyline :points="linePoints" stroke="white" stroke-width="2" />
-              <line x1="0" :y1="255 - y1" :x2="x1" :y2="255 - y1" stroke="white" stroke-dasharray="4" />
-              <line :x1="x2" :y1="255 - y2" x2="255" :y2="255 - y2" stroke="white" stroke-dasharray="4" />
-            </svg>
-          </v-col>
-        </v-row>
+        <svg
+          width="256"
+          height="256"
+          viewBox="0 0 256 256"
+          style="background: #111; border: 1px solid #444"
+        >
+          <polyline :points="rPoints" fill="none" stroke="red" stroke-width="1" />
+          <polyline :points="gPoints" fill="none" stroke="lime" stroke-width="1" />
+          <polyline :points="bPoints" fill="none" stroke="blue" stroke-width="1" />
+          <polyline :points="linePoints" stroke="white" stroke-width="2" />
+          <line
+            x1="0"
+            :y1="255 - y1"
+            :x2="x1"
+            :y2="255 - y1"
+            stroke="white"
+            stroke-dasharray="4"
+          />
+          <line
+            :x1="x2"
+            :y1="255 - y2"
+            x2="255"
+            :y2="255 - y2"
+            stroke="white"
+            stroke-dasharray="4"
+          />
+        </svg>
 
-        <!-- Поля ввода -->
         <v-row class="mt-3">
           <v-col cols="6">
             <v-text-field
               v-model.number="x1"
               label="Вход 1"
               type="number"
-              :max="x2 - 1"
-              :rules="[
-                (v) => (v >= 0 && v <= 255) || '0–255',
-                (v) => v < x2 || 'X1 < X2'
-              ]"
+              :rules="[(v) => (v >= 0 && v <= 255) || '0–255']"
             />
           </v-col>
           <v-col cols="6">
@@ -64,11 +56,7 @@
               v-model.number="x2"
               label="Вход 2"
               type="number"
-              :min="x1 + 1"
-              :rules="[
-                (v) => (v >= 0 && v <= 255) || '0–255',
-                (v) => v > x1 || 'X2 > X1'
-              ]"
+              :rules="[(v) => (v >= 0 && v <= 255) || '0–255']"
             />
           </v-col>
           <v-col cols="6">
@@ -123,9 +111,9 @@ let previewWasApplied = false;
 let originalImageSnapshot = null;
 let originalImageData = null;
 
-const rHistogram = ref([]);
-const gHistogram = ref([]);
-const bHistogram = ref([]);
+const rHistogram = ref(new Array(256).fill(0));
+const gHistogram = ref(new Array(256).fill(0));
+const bHistogram = ref(new Array(256).fill(0));
 
 function getHistogram() {
   if (!props.image) return;
@@ -148,17 +136,19 @@ function getHistogram() {
   const b = new Array(256).fill(0);
 
   for (let i = 0; i < imageData.data.length; i += 4) {
+    const a = imageData.data[i + 3];
+    if (a === 0) continue;
     r[imageData.data[i]]++;
     g[imageData.data[i + 1]]++;
     b[imageData.data[i + 2]]++;
   }
 
-  rHistogram.value = normalize(r);
-  gHistogram.value = normalize(g);
-  bHistogram.value = normalize(b);
+  rHistogram.value = normalizeHistogram(r);
+  gHistogram.value = normalizeHistogram(g);
+  bHistogram.value = normalizeHistogram(b);
 }
 
-function normalize(hist) {
+function normalizeHistogram(hist) {
   const max = Math.max(...hist);
   return hist.map((v, i) => `${i},${255 - Math.round((v / max) * 255)}`).join(" ");
 }
@@ -171,11 +161,21 @@ const linePoints = computed(() => {
   return `0,${255 - y1.value} ${x1.value},${255 - y1.value} ${x2.value},${255 - y2.value} 255,${255 - y2.value}`;
 });
 
+watch([x1, x2], () => {
+  if (x1.value >= x2.value) {
+    const tmp = x1.value;
+    x1.value = x2.value - 1;
+    if (x1.value < 0) x1.value = 0;
+    x2.value = tmp + 1;
+    if (x2.value > 255) x2.value = 255;
+  }
+});
+
 function generateLUT(x1, y1, x2, y2) {
   const lut = new Uint8ClampedArray(256);
   for (let i = 0; i < 256; i++) {
-    if (i < x1) lut[i] = Math.round((y1 / x1) * i);
-    else if (i > x2) lut[i] = Math.round(((255 - y2) / (255 - x2)) * (i - x2) + y2);
+    if (i <= x1) lut[i] = Math.round((y1 / x1) * i);
+    else if (i >= x2) lut[i] = Math.round(((255 - y2) / (255 - x2)) * (i - x2) + y2);
     else lut[i] = Math.round(((y2 - y1) / (x2 - x1)) * (i - x1) + y1);
   }
   return lut;
@@ -196,7 +196,6 @@ function applyToCanvas(lut) {
   for (let i = 0; i < newImageData.data.length; i += 4) {
     const a = newImageData.data[i + 3];
     if (a === 0) continue;
-
     newImageData.data[i] = lut[newImageData.data[i]];
     newImageData.data[i + 1] = lut[newImageData.data[i + 1]];
     newImageData.data[i + 2] = lut[newImageData.data[i + 2]];
@@ -215,9 +214,7 @@ function applyToCanvas(lut) {
 
 async function applyPreview() {
   if (!previewEnabled.value) {
-    if (originalImageSnapshot) {
-      emit("apply", originalImageSnapshot);
-    }
+    if (originalImageSnapshot) emit("apply", originalImageSnapshot);
     previewWasApplied = false;
     return;
   }
@@ -242,17 +239,12 @@ async function reset() {
   y2.value = 255;
   previewEnabled.value = false;
   previewWasApplied = false;
-
-  if (originalImageSnapshot) {
-    emit("apply", originalImageSnapshot);
-  }
-
+  if (originalImageSnapshot) emit("apply", originalImageSnapshot);
   emit("update:modelValue", false);
 }
 
 async function close() {
   emit("update:modelValue", false);
-
   if (previewWasApplied && originalImageSnapshot) {
     emit("apply", originalImageSnapshot);
   }
@@ -260,10 +252,12 @@ async function close() {
 
 watch(() => props.image, getHistogram);
 onMounted(getHistogram);
-
-watch([x1, x2], ([a, b]) => {
-  if (a >= b) {
-    x2.value = a + 1 > 255 ? 255 : a + 1;
-  }
-});
 </script>
+
+
+<style scoped>
+svg {
+  display: block;
+  margin: 0 auto;
+}
+</style>

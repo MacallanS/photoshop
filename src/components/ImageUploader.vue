@@ -3,9 +3,7 @@
     <v-app-bar app color="black" dark>
       <v-app-bar-nav-icon @click="drawer = !drawer" />
       <v-toolbar-title>Загрузчик изображений</v-toolbar-title>
-
       <v-spacer />
-
       <div class="d-flex align-center" style="padding-right: 16px">
         <ToolSelector v-model:activeTool="activeTool" />
       </div>
@@ -22,6 +20,21 @@
         <v-list-item @click="curveDialog = true" :disabled="!imageLoaded">
           <v-list-item-title>Градационные кривые</v-list-item-title>
         </v-list-item>
+        <v-list-item @click="filterDialog = true" :disabled="!imageLoaded">
+          <v-list-item-title>Фильтрация (ядро)</v-list-item-title>
+        </v-list-item>
+        <v-list-item @click="handleDownloadImage('png')" :disabled="!imageLoaded">
+          <v-list-item-title>Скачать PNG</v-list-item-title>
+        </v-list-item>
+
+        <v-list-item @click="handleDownloadImage('jpeg')" :disabled="!imageLoaded">
+          <v-list-item-title>Скачать JPG</v-list-item-title>
+        </v-list-item>
+
+        <v-list-item @click="handleDownloadGb7" :disabled="!imageLoaded">
+          <v-list-item-title>Скачать GB7</v-list-item-title>
+        </v-list-item>
+
       </v-list>
     </v-navigation-drawer>
 
@@ -29,35 +42,20 @@
       <v-container fluid class="pa-1" style="position: relative; height: 100%">
         <v-row>
           <v-col cols="9">
-            <v-card
-              flat
-              class="d-flex flex-column align-center justify-start"
-              style="background-color: #1e1e1e; height: 90vh; border: 2px dashed #555"
-            >
-              <input
-                ref="hiddenInput"
-                type="file"
-                accept=".png,.jpg,.jpeg,.gb7"
-                style="display: none"
-                @change="onFileSelected"
-              />
+            <v-card flat class="d-flex flex-column align-center justify-start"
+              style="background-color: #1e1e1e; height: 90vh; border: 2px dashed #555">
+              <input ref="hiddenInput" type="file" accept=".png,.jpg,.jpeg,.gb7" style="display: none"
+                @change="onFileSelected" />
 
               <UploadError v-if="loadError" />
 
-              <div
-                v-show="imageLoaded"
-                ref="canvasContainer"
-                class="d-flex justify-center align-center container"
-                style="flex: 1; width: 100%; height: 100%; overflow: auto"
-              >
+              <div v-show="imageLoaded" ref="canvasContainer" class="d-flex justify-center align-center container"
+                style="flex: 1; width: 100%; height: 100%; overflow: auto">
                 <canvas ref="canvas" />
               </div>
             </v-card>
 
-            <v-card
-              flat
-              class="pa-2 d-flex align-center justify-center"
-              style="
+            <v-card flat class="pa-2 d-flex align-center justify-center" style="
                 position: absolute;
                 bottom: 5px;
                 right: 11px;
@@ -65,78 +63,45 @@
                 background-color: #2a2a2a;
                 z-index: 10;
                 border-radius: 4px;
-              "
-            >
-              <v-slider
-                v-model="zoom"
-                min="10"
-                max="500"
-                step="10"
-                hide-details
-                class="flex-grow-1"
-                @update:modelValue="drawImage"
-              >
+              ">
+              <v-slider v-model="zoom" min="10" max="500" step="10" hide-details class="flex-grow-1"
+                @update:modelValue="drawImage">
                 <template #append>
-                  <span style="color: white; width: 50px; text-align: center"
-                    >{{ zoom }}%</span
-                  >
+                  <span style="color: white; width: 50px; text-align: center">{{ zoom }}%</span>
                 </template>
               </v-slider>
             </v-card>
           </v-col>
 
           <v-col cols="3">
-            <LayerPanel
-              :layers="layers"
-              :active-layer-id="activeLayerId"
-              @add-layer="showAddLayer = true"
-              @remove-layer="removeLayer"
-              @toggle-visibility="toggleLayerVisibility"
-              @update-layer="updateLayer"
-              @update:activeLayerId="(id) => (activeLayerId = id)"
-              @toggle-alpha-visibility="toggleAlphaVisibility"
-              @remove-alpha-channels="removeAlphaChannels"
-              @move-layer-up="moveLayerUp"
-              @move-layer-down="moveLayerDown"
-              @toggle-layer-alpha="toggleLayerAlpha"
-              @remove-layer-alpha="removeLayerAlpha"
-            />
+            <LayerPanel :layers="layers" :active-layer-id="activeLayerId" @add-layer="showAddLayer = true"
+              @remove-layer="removeLayer" @toggle-visibility="toggleLayerVisibility" @update-layer="updateLayer"
+              @update:activeLayerId="(id) => (activeLayerId = id)" @toggle-alpha-visibility="toggleAlphaVisibility"
+              @remove-alpha-channels="removeAlphaChannels" @move-layer-up="moveLayerUp" @move-layer-down="moveLayerDown"
+              @toggle-layer-alpha="toggleLayerAlpha" @remove-layer-alpha="removeLayerAlpha" />
           </v-col>
         </v-row>
-        <ResizeDialog
-          v-model="resizeDialog"
-          :current-width="imageWidth"
-          :current-height="imageHeight"
-          @resize="handleResizeResizeDialog"
-        />
-        <ColorInfoPanel
-          v-if="activeTool === 'eyedropper' && (firstColor || secondColor)"
-          :firstColor="firstColor"
-          :secondColor="secondColor"
-          style="width: 100%; background-color: #2a2a2a"
-        />
-        <AddLayerDialog
-          v-model="showAddLayer"
-          :width="imageWidth"
-          :height="imageHeight"
-          @add-layer="handleAddLayer"
-        />
 
-        <ImageInfo
-          v-if="imageLoaded"
-          :width="imageWidth"
-          :height="imageHeight"
-          :depth="depthText"
-        />
-        <CurvesDialog
-          v-model="curveDialog"
-          :image="layers.find((l) => l.id === activeLayerId)?.image"
-          @apply="onApplyCurveCorrection"
-        />
+        <ResizeDialog v-model="resizeDialog" :current-width="imageWidth" :current-height="imageHeight"
+          @resize="handleResizeResizeDialog" />
+
+        <ColorInfoPanel v-if="activeTool === 'eyedropper' && (firstColor || secondColor)" :firstColor="firstColor"
+          :secondColor="secondColor" style="width: 100%; background-color: #2a2a2a" />
+
+        <AddLayerDialog v-model="showAddLayer" :width="imageWidth" :height="imageHeight" @add-layer="handleAddLayer" />
+
+        <ImageInfo v-if="imageLoaded" :width="imageWidth" :height="imageHeight" :depth="depthText" />
+
+        <CurvesDialog v-model="curveDialog" :image="layers.find((l) => l.id === activeLayerId)?.image"
+          @apply="onApplyCurveCorrection" />
+
+        <KernelFilterDialog v-model="filterDialog" :image="layers.find((l) => l.id === activeLayerId)?.image"
+          @apply="onApplyKernelFilter" />
       </v-container>
     </v-main>
   </v-app>
 </template>
+
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from "vue";
@@ -152,6 +117,8 @@ import { pickColorAtCursor } from "@/utils/canvasHelpers";
 import { parseGB7 } from "@/utils/gb7Parser";
 import { nextTick } from "vue";
 import CurvesDialog from "@/components/CurvesDialog.vue";
+import KernelFilterDialog from '@/components/KernelFilterDialog.vue'
+import { downloadImage, downloadGb7 } from '@/utils/downloaders';
 
 const curveDialog = ref(false);
 const drawer = ref(false);
@@ -180,6 +147,33 @@ let offsetY = 0;
 let isDragging = false;
 let startX = 0;
 let startY = 0;
+
+const filterDialog = ref(false);
+
+function onApplyKernelFilter(newImg) {
+  const layer = layers.value.find((l) => l.id === activeLayerId.value);
+  if (!layer) return;
+  layer.image = newImg;
+  const previewCanvas = document.createElement('canvas');
+  previewCanvas.width = 50;
+  previewCanvas.height = 50;
+  const ctx = previewCanvas.getContext('2d');
+  ctx.drawImage(newImg, 0, 0, 50, 50);
+  layer.preview = previewCanvas.toDataURL();
+  drawImage();
+}
+
+function handleDownloadImage(format) {
+  const layer = layers.value.find((l) => l.id === activeLayerId.value);
+  if (!layer) return;
+  downloadImage(layer.image, format); // используем импорт
+}
+
+function handleDownloadGb7() {
+  const layer = layers.value.find((l) => l.id === activeLayerId.value);
+  if (!layer) return;
+  downloadGb7(layer.image); // используем импорт
+}
 
 function moveLayerUp(index) {
   if (index <= 0) return;

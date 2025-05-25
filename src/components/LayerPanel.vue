@@ -16,14 +16,25 @@
         @click="$emit('update:activeLayerId', layer.id)"
       >
         <template #prepend>
-          <v-img
-            :src="layer.preview"
-            alt="Превью"
-            class="layer-thumbnail me-2"
-            width="48"
-            height="48"
-            cover
-          />
+          <div class="preview-wrapper">
+            <v-img
+              :src="layer.preview"
+              alt="Изображение"
+              class="layer-thumbnail"
+              width="48"
+              height="48"
+              cover
+            />
+            <v-img
+              v-if="layer.hasAlpha"
+              :src="layer.alphaPreview"
+              alt="Альфа"
+              class="layer-thumbnail alpha-thumb"
+              width="48"
+              height="48"
+              cover
+            />
+          </div>
         </template>
 
         <div class="d-flex flex-column flex-grow-1">
@@ -32,18 +43,14 @@
             <div class="d-flex">
               <v-btn
                 v-if="rIndex < reversedLayers.length - 1"
-                icon
-                size="x-small"
-                variant="text"
+                icon size="x-small" variant="text"
                 @click.stop="$emit('move-layer-up', props.layers.indexOf(layer))"
               >
                 <v-icon size="18">mdi-arrow-down</v-icon>
               </v-btn>
               <v-btn
                 v-if="rIndex > 0"
-                icon
-                size="x-small"
-                variant="text"
+                icon size="x-small" variant="text"
                 @click.stop="$emit('move-layer-down', props.layers.indexOf(layer))"
               >
                 <v-icon size="18">mdi-arrow-up</v-icon>
@@ -66,48 +73,35 @@
                     @update:modelValue="$emit('update-layer', { ...layer })"
                   />
                 </template>
-                <span
-                  >Настройка прозрачности (0 — полностью прозрачный, 1 —
-                  непрозрачный)</span
-                >
+                <span>Прозрачность слоя (0 — прозрачный, 1 — непрозрачный)</span>
               </v-tooltip>
             </v-col>
             <v-col cols="4">
-              <v-tooltip location="bottom">
-                <template #activator="{ props: tooltipProps }">
-                  <v-select
-                    v-bind="tooltipProps"
-                    :items="blendModes"
-                    item-title="value"
-                    item-value="value"
-                    v-model="layer.blendMode"
-                    density="compact"
-                    hide-details
-                    @update:modelValue="$emit('update-layer', layer)"
-                  />
-                </template>
-                <span>
-                  {{ blendModes.find((m) => m.value === layer.blendMode)?.text }}
-                </span>
-              </v-tooltip>
+              <v-select
+                :items="blendModes"
+                item-title="value"
+                item-value="value"
+                v-model="layer.blendMode"
+                density="compact"
+                hide-details
+                @update:modelValue="$emit('update-layer', layer)"
+              />
             </v-col>
           </v-row>
         </div>
 
         <template #append>
           <v-btn
-            icon
-            size="x-small"
+            icon size="x-small"
             @click.stop="$emit('toggle-visibility', layer.id)"
             :title="layer.visible ? 'Скрыть слой' : 'Показать слой'"
           >
-            <v-icon>{{ layer.visible ? "mdi-eye" : "mdi-eye-off" }}</v-icon>
+            <v-icon>{{ layer.visible ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
           </v-btn>
 
           <v-btn
             v-if="layer.hasAlpha"
-            icon
-            size="x-small"
+            icon size="x-small"
             color="blue"
             @click.stop="$emit('toggle-layer-alpha', layer.id)"
             title="Скрыть/показать альфа-канал"
@@ -117,8 +111,7 @@
 
           <v-btn
             v-if="layer.hasAlpha"
-            icon
-            size="x-small"
+            icon size="x-small"
             color="red"
             @click.stop="$emit('remove-layer-alpha', layer.id)"
             title="Удалить альфа-канал"
@@ -127,8 +120,7 @@
           </v-btn>
 
           <v-btn
-            icon
-            size="x-small"
+            icon size="x-small"
             color="red"
             @click.stop="$emit('remove-layer', layer.id)"
             title="Удалить слой"
@@ -162,10 +154,10 @@ defineEmits([
 ]);
 
 const blendModes = [
-  { value: "normal", text: "Обычный — верхний слой перекрывает нижний." },
-  { value: "multiply", text: "Умножение — делает изображение темнее." },
-  { value: "screen", text: "Экран — делает изображение светлее." },
-  { value: "overlay", text: "Наложение — усиливает контраст." },
+  { value: "normal", text: "Обычный" },
+  { value: "multiply", text: "Умножение" },
+  { value: "screen", text: "Экран" },
+  { value: "overlay", text: "Наложение" },
 ];
 
 const reversedLayers = computed(() => props.layers.slice().reverse());
@@ -177,12 +169,33 @@ function truncateName(name) {
 watchEffect(() => {
   for (const layer of props.layers) {
     if (!layer.image) continue;
-    const previewCanvas = document.createElement("canvas");
-    previewCanvas.width = 48;
-    previewCanvas.height = 48;
-    const ctx = previewCanvas.getContext("2d");
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 48;
+    canvas.height = 48;
+    const ctx = canvas.getContext("2d");
     ctx.drawImage(layer.image, 0, 0, 48, 48);
-    layer.preview = previewCanvas.toDataURL();
+    layer.preview = canvas.toDataURL();
+
+    if (layer.hasAlpha) {
+      const alphaCanvas = document.createElement("canvas");
+      alphaCanvas.width = 48;
+      alphaCanvas.height = 48;
+      const aCtx = alphaCanvas.getContext("2d");
+      aCtx.drawImage(layer.image, 0, 0, 48, 48);
+      const imgData = aCtx.getImageData(0, 0, 48, 48);
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        const alpha = imgData.data[i + 3];
+        imgData.data[i + 0] = alpha;
+        imgData.data[i + 1] = alpha;
+        imgData.data[i + 2] = alpha;
+        imgData.data[i + 3] = 255;
+      }
+      aCtx.putImageData(imgData, 0, 0);
+      layer.alphaPreview = alphaCanvas.toDataURL();
+    } else {
+      layer.alphaPreview = null;
+    }
   }
 });
 </script>
@@ -204,9 +217,17 @@ watchEffect(() => {
   border-left-color: #1976d2;
   background-color: #303030;
 }
+.preview-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 .layer-thumbnail {
   border-radius: 4px;
-  object-fit: cover;
   background-color: #444;
+  object-fit: cover;
+}
+.alpha-thumb {
+  border: 1px dashed #888;
 }
 </style>

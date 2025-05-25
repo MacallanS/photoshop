@@ -1,8 +1,5 @@
 <template>
-  <v-card
-    v-if="firstColor"
-    style="position: absolute; bottom: 60px; right: 10px; z-index: 20; max-width: 23.5%"
-  >
+  <v-card v-if="firstColor" style="position: absolute; bottom: 60px; right: 10px; z-index: 20; max-width: 23.5%">
     <v-card-title>Информация о цветах</v-card-title>
     <v-card-text>
       <div class="d-flex justify-space-between mb-2">
@@ -54,7 +51,7 @@
                 <template #activator="{ props }">
                   <span v-bind="props"><b>XYZ</b></span>
                 </template>
-                CIE XYZ — линейное представление спектра
+                CIE 1931 XYZ — линейное представление спектра
               </v-tooltip>
             </td>
             <td>{{ formatXyz(firstColor) }}</td>
@@ -91,12 +88,7 @@
 
       <div v-if="firstColor && secondColor">
         <b>Контраст:</b> {{ contrast.toFixed(2) }}
-        <v-chip
-          :color="contrast >= 4.5 ? 'green' : 'red'"
-          text-color="white"
-          class="ma-2"
-          small
-        >
+        <v-chip :color="contrast >= 4.5 ? 'green' : 'red'" text-color="white" class="ma-2" small>
           {{ contrast >= 4.5 ? "Достаточный" : "Недостаточный" }}
         </v-chip>
       </div>
@@ -110,7 +102,14 @@
 
 <script setup>
 import { computed } from "vue";
-import { rgbToXyz, xyzToLab, labToLch, getContrast } from "../utils/colorConverters";
+import {
+  convertRgbToXyz,
+  convertXyzToLab,
+  convertLabToLch,
+  convertRgbToOklab,
+  convertOklabToOklch,
+  calculateContrast,
+} from "../utils/colorConverters";
 
 const props = defineProps({
   firstColor: Object,
@@ -126,28 +125,28 @@ function formatRgb(color) {
 }
 
 function formatXyz(color) {
-  const { x, y, z } = rgbToXyz(color);
+  const { x, y, z } = convertRgbToXyz(color);
   return `${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)}`;
 }
 
 function formatLab(color) {
-  const xyz = rgbToXyz(color);
-  const { l, a, b } = xyzToLab(xyz);
+  const xyz = convertRgbToXyz(color);
+  const { l, a, b } = convertXyzToLab(xyz);
   return `${l.toFixed(2)}, ${a.toFixed(2)}, ${b.toFixed(2)}`;
 }
 
 function formatOklch(color) {
-  const xyz = rgbToXyz(color);
-  const lab = xyzToLab(xyz);
-  const { l, c, h } = labToLch(lab);
-  return `${l.toFixed(2)}, ${c.toFixed(2)}, ${h.toFixed(2)}`;
+  const oklab = convertRgbToOklab(color);
+  const { l, c, h } = convertOklabToOklch(oklab);
+  return `${l.toFixed(4)}, ${c.toFixed(4)}, ${h.toFixed(2)}`;
 }
 
 const contrast = computed(() => {
   if (!props.firstColor || !props.secondColor) return 0;
-  return getContrast(props.firstColor, props.secondColor);
+  return calculateContrast(props.firstColor, props.secondColor);
 });
 </script>
+
 
 <style scoped>
 .swatch {
@@ -156,11 +155,13 @@ const contrast = computed(() => {
   border-radius: 4px;
   border: 1px solid #ccc;
 }
+
 .color-table {
   width: 100%;
   font-size: 0.85rem;
   border-collapse: collapse;
 }
+
 .color-table th,
 .color-table td {
   padding: 4px 8px;
