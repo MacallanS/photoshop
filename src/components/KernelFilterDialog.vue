@@ -26,13 +26,6 @@
             />
           </div>
         </div>
-
-        <v-checkbox
-          v-model="previewEnabled"
-          label="Предпросмотр"
-          class="mt-3"
-          @change="applyPreview"
-        />
       </v-card-text>
 
       <v-card-actions>
