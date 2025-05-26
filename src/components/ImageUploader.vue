@@ -31,10 +31,6 @@
           <v-list-item-title>Скачать JPG</v-list-item-title>
         </v-list-item>
 
-        <v-list-item @click="handleDownloadGb7" :disabled="!imageLoaded">
-          <v-list-item-title>Скачать GB7</v-list-item-title>
-        </v-list-item>
-
       </v-list>
     </v-navigation-drawer>
 
